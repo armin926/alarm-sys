@@ -239,7 +239,7 @@ const heatmapWrapper = ref<HTMLElement>()
 const demoPage = ref<HTMLElement>()
 const heatmapCanvas = ref<HTMLCanvasElement>()
 const heatmapData = ref<HeatmapPoint[]>([])
-const demoInterval = ref<number | null>(null)
+const demoInterval = ref<NodeJS.Timeout | null>(null)
 
 // 计算属性
 const totalClicks = computed(() => {

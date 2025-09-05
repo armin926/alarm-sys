@@ -462,7 +462,7 @@ const clearSelectedErrors = async () => {
 }
 
 const exportLogs = () => {
-  const csvContent = generateCSV(filteredErrors.value)
+  const csvContent = generateCSV([...filteredErrors.value])
   downloadCSV(csvContent, 'error-logs.csv')
   ElMessage.success('错误日志导出成功')
 }

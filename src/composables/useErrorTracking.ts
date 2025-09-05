@@ -176,11 +176,11 @@ export function useErrorTracking() {
     const originalOpen = XMLHttpRequest.prototype.open
     const originalSend = XMLHttpRequest.prototype.send
     
-    XMLHttpRequest.prototype.open = function(method: string, url: string, async: boolean = true, ...args: any[]) {
+    XMLHttpRequest.prototype.open = function(method: string, url: string, async: boolean = true, username?: string | null, password?: string | null) {
       this._method = method
       this._url = url
       this._startTime = performance.now()
-      return originalOpen.apply(this, [method, url, async, ...args])
+      return originalOpen.call(this, method, url, async, username, password)
     }
     
     XMLHttpRequest.prototype.send = function(body?: Document | XMLHttpRequestBodyInit | null) {

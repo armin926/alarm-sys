@@ -70,11 +70,11 @@
 
     <!-- 标签页导航 -->
     <el-tabs v-model="activeTab" class="performance-tabs">
-      <el-tab-pane label="性能指标" name="metrics">
-        <PerformanceMetrics />
-      </el-tab-pane>
       <el-tab-pane label="性能图表" name="charts">
         <PerformanceCharts />
+      </el-tab-pane>
+      <el-tab-pane label="性能指标" name="metrics">
+        <PerformanceMetrics />
       </el-tab-pane>
       <el-tab-pane label="演示功能" name="demo">
         <PerformanceDemo />
@@ -82,7 +82,7 @@
     </el-tabs>
 
     <!-- 嵌套路由视图 -->
-    <router-view v-if="$route.path !== '/performance'" />
+    <!-- <router-view v-if="$route.path !== '/performance'" /> -->
   </div>
 </template>
 
@@ -100,7 +100,7 @@ import PerformanceDemo from '@/components/demos/PerformanceDemo.vue'
 const performanceStore = usePerformanceStore()
 const { startPerformanceMonitoring, stopPerformanceMonitoring } = usePerformanceMonitoring()
 
-const activeTab = ref('metrics')
+const activeTab = ref('charts')
 const isMonitoring = computed({
   get: () => performanceStore.isMonitoring,
   set: (value) => {

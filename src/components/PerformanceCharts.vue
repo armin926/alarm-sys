@@ -4,7 +4,7 @@
     <div class="chart-controls">
       <div class="control-group">
         <label class="control-label">时间范围:</label>
-        <el-select v-model="timeRange" @change="updateCharts">
+        <el-select v-model="timeRange" style="width: 120px" @change="updateCharts">
           <el-option label="最近1小时" value="1h" />
           <el-option label="最近6小时" value="6h" />
           <el-option label="最近24小时" value="24h" />
@@ -14,7 +14,7 @@
       
       <div class="control-group">
         <label class="control-label">刷新间隔:</label>
-        <el-select v-model="refreshInterval" @change="setRefreshInterval">
+        <el-select v-model="refreshInterval" style="width: 120px" @change="setRefreshInterval">
           <el-option label="手动" :value="0" />
           <el-option label="5秒" :value="5000" />
           <el-option label="10秒" :value="10000" />
@@ -51,7 +51,7 @@
               />
             </div>
           </template>
-          <div ref="webVitalsChart" class="chart-container"></div>
+        <div :ref="chartRefs.webVitals" class="chart-container"></div>
         </el-card>
       </el-col>
       
@@ -68,7 +68,7 @@
               </el-tag>
             </div>
           </template>
-          <div ref="scoreChart" class="chart-container"></div>
+        <div :ref="chartRefs.score" class="chart-container"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -85,7 +85,7 @@
               </span>
             </div>
           </template>
-          <div ref="resourceTypeChart" class="chart-container"></div>
+        <div :ref="chartRefs.resourceType" class="chart-container"></div>
         </el-card>
       </el-col>
       
@@ -99,7 +99,7 @@
               </span>
             </div>
           </template>
-          <div ref="resourceTimeChart" class="chart-container"></div>
+        <div :ref="chartRefs.resourceTime" class="chart-container"></div>
         </el-card>
       </el-col>
       
@@ -113,7 +113,7 @@
               </span>
             </div>
           </template>
-          <div ref="waterfallChart" class="chart-container"></div>
+        <div :ref="chartRefs.waterfall" class="chart-container"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -138,7 +138,7 @@
               </div>
             </div>
           </template>
-          <div ref="comparisonChart" class="chart-container-large"></div>
+        <div :ref="chartRefs.comparison" class="chart-container-large"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, computed, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { 
   TrendCharts, 
@@ -162,24 +162,31 @@ import { ElMessage } from 'element-plus'
 import { usePerformanceStore } from '@/stores'
 import { usePerformanceMonitoring } from '@/composables'
 
+// ============================
+// 数据和状态管理
+// ============================
 const performanceStore = usePerformanceStore()
 const { measureResourceTiming } = usePerformanceMonitoring()
 
-// 图表容器引用
-const webVitalsChart = ref<HTMLDivElement>()
-const scoreChart = ref<HTMLDivElement>()
-const resourceTypeChart = ref<HTMLDivElement>()
-const resourceTimeChart = ref<HTMLDivElement>()
-const waterfallChart = ref<HTMLDivElement>()
-const comparisonChart = ref<HTMLDivElement>()
+// 图表容器引用统一管理
+const chartRefs = {
+  webVitals: ref<HTMLDivElement>(),
+  score: ref<HTMLDivElement>(),
+  resourceType: ref<HTMLDivElement>(),
+  resourceTime: ref<HTMLDivElement>(),
+  waterfall: ref<HTMLDivElement>(),
+  comparison: ref<HTMLDivElement>()
+}
 
-// 图表实例
-let webVitalsChartInstance: echarts.ECharts | null = null
-let scoreChartInstance: echarts.ECharts | null = null
-let resourceTypeChartInstance: echarts.ECharts | null = null
-let resourceTimeChartInstance: echarts.ECharts | null = null
-let waterfallChartInstance: echarts.ECharts | null = null
-let comparisonChartInstance: echarts.ECharts | null = null
+// 图表实例统一管理
+const chartInstances: Record<string, echarts.ECharts | null> = {
+  webVitals: null,
+  score: null,
+  resourceType: null,
+  resourceTime: null,
+  waterfall: null,
+  comparison: null
+}
 
 // 控制状态
 const timeRange = ref('1h')
@@ -192,412 +199,307 @@ let refreshTimer: number | null = null
 const latestScore = computed(() => performanceStore.performanceScore)
 const metricsData = computed(() => performanceStore.latestMetrics)
 
-// 初始化图表
-const initCharts = () => {
-  initWebVitalsChart()
-  initScoreChart()
-  initResourceTypeChart()
-  initResourceTimeChart()
-  initWaterfallChart()
-  initComparisonChart()
-}
+// ============================
+// 工具函数和配置构建器
+// ============================
 
-// Web Vitals 趋势图表
-const initWebVitalsChart = () => {
-  if (!webVitalsChart.value) return
+/**
+ * 等待DOM元素尺寸就绪
+ * @param element - DOM元素
+ * @param maxAttempts - 最大尝试次数
+ * @returns Promise<boolean> - 是否成功获取尺寸
+ */
+const waitForElementSize = async (element: HTMLElement | null, maxAttempts = 10): Promise<boolean> => {
+  if (!element) return false
   
-  webVitalsChartInstance = echarts.init(webVitalsChart.value)
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' }
-    },
-    legend: {
-      data: ['FCP', 'LCP', 'FID', 'TTFB']
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: generateTimeLabels()
-    },
-    yAxis: {
-      type: 'value',
-      name: '时间 (ms)'
-    },
-    series: [
-      {
-        name: 'FCP',
-        type: 'line',
-        smooth: true,
-        data: generateMetricData('fcp'),
-        itemStyle: { color: '#1890ff' }
-      },
-      {
-        name: 'LCP',
-        type: 'line',
-        smooth: true,
-        data: generateMetricData('lcp'),
-        itemStyle: { color: '#52c41a' }
-      },
-      {
-        name: 'FID',
-        type: 'line',
-        smooth: true,
-        data: generateMetricData('fid'),
-        itemStyle: { color: '#faad14' }
-      },
-      {
-        name: 'TTFB',
-        type: 'line',
-        smooth: true,
-        data: generateMetricData('ttfb'),
-        itemStyle: { color: '#722ed1' }
-      }
-    ]
+  for (let attempts = 1; attempts <= maxAttempts; attempts++) {
+    const { clientWidth, clientHeight } = element
+    if (clientWidth > 0 && clientHeight > 0) return true
+    await new Promise(resolve => setTimeout(resolve, attempts * 50))
   }
   
-  webVitalsChartInstance.setOption(option)
+  return false
 }
 
-// 性能得分图表
-const initScoreChart = () => {
-  if (!scoreChart.value) return
+/**
+ * 创建通用网格配置
+ */
+const createGridConfig = () => ({
+  left: '3%',
+  right: '4%',
+  bottom: '3%',
+  containLabel: true
+})
+
+/**
+ * 创建时间轴配置
+ */
+const createTimeAxisConfig = () => ({
+  type: 'category',
+  data: generateTimeLabels()
+})
+
+/**
+ * 通用图表初始化函数
+ * @param chartKey - 图表键名
+ * @param optionBuilder - 配置构建函数
+ */
+const initChart = async (chartKey: string, optionBuilder: () => any) => {
+  const element = chartRefs[chartKey as keyof typeof chartRefs].value
+  if (!element) return
+
+  await waitForElementSize(element)
   
-  scoreChartInstance = echarts.init(scoreChart.value)
+  // 销毁旧实例
+  if (chartInstances[chartKey]) {
+    chartInstances[chartKey]?.dispose()
+    chartInstances[chartKey] = null
+  }
+
+  try {
+    chartInstances[chartKey] = echarts.init(element)
+    chartInstances[chartKey]?.setOption(optionBuilder())
+  } catch (error) {
+    console.error(`Failed to initialize ${chartKey} chart:`, error)
+  }
+}
+
+// ============================
+// 图表配置构建器
+// ============================
+
+/**
+ * 创建Web Vitals趋势图配置
+ */
+const createWebVitalsOption = () => ({
+  tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+  legend: { data: ['FCP', 'LCP', 'FID', 'TTFB'] },
+  grid: createGridConfig(),
+  xAxis: createTimeAxisConfig(),
+  yAxis: { type: 'value', name: '时间 (ms)' },
+  series: [
+    { name: 'FCP', color: '#1890ff' },
+    { name: 'LCP', color: '#52c41a' },
+    { name: 'FID', color: '#faad14' },
+    { name: 'TTFB', color: '#722ed1' }
+  ].map(metric => ({
+    name: metric.name,
+    type: 'line',
+    smooth: true,
+    data: generateMetricData(metric.name.toLowerCase()),
+    itemStyle: { color: metric.color }
+  }))
+})
+
+/**
+ * 创建性能得分图配置
+ */
+const createScoreOption = () => ({
+  tooltip: {
+    trigger: 'axis',
+    formatter: (params: any) => {
+      const score = params[0].value
+      const level = getScoreLevel(score)
+      return `时间: ${params[0].axisValue}<br/>得分: ${score}<br/>等级: ${level}`
+    }
+  },
+  grid: createGridConfig(),
+  xAxis: createTimeAxisConfig(),
+  yAxis: { type: 'value', min: 0, max: 100, name: '性能得分' },
+  series: [{
+    name: '性能得分',
+    type: 'line',
+    smooth: true,
+    data: generateScoreData(),
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
+        { offset: 1, color: 'rgba(24, 144, 255, 0.1)' }
+      ])
+    },
+    itemStyle: { color: '#1890ff' },
+    markLine: {
+      data: [
+        { yAxis: 80, name: '优秀线', lineStyle: { color: '#52c41a' } },
+        { yAxis: 60, name: '及格线', lineStyle: { color: '#faad14' } }
+      ]
+    }
+  }]
+})
+
+/**
+ * 创建资源类型分布图配置
+ */
+const createResourceTypeOption = () => {
+  const resourceData = [
+    { value: 35, name: '脚本', color: '#1890ff' },
+    { value: 25, name: '样式', color: '#52c41a' },
+    { value: 20, name: '图片', color: '#faad14' },
+    { value: 10, name: '字体', color: '#f5222d' },
+    { value: 10, name: '其他', color: '#722ed1' }
+  ]
   
-  const scoreData = generateScoreData()
+  return {
+    tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+    legend: { bottom: 0, data: resourceData.map(item => item.name) },
+    series: [{
+      name: '资源类型',
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '40%'],
+      data: resourceData.map(item => ({ value: item.value, name: item.name, itemStyle: { color: item.color } })),
+      emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+    }]
+  }
+}
+
+/**
+ * 创建资源加载时间图配置
+ */
+const createResourceTimeOption = () => {
+  const loadTimeData = [
+    { name: '脚本', value: 120, color: '#1890ff' },
+    { name: '样式', value: 80, color: '#52c41a' },
+    { name: '图片', value: 200, color: '#faad14' },
+    { name: '字体', value: 150, color: '#f5222d' },
+    { name: 'XHR', value: 300, color: '#722ed1' }
+  ]
   
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      formatter: (params: any) => {
-        const score = params[0].value
-        const level = getScoreLevel(score)
-        return `时间: ${params[0].axisValue}<br/>得分: ${score}<br/>等级: ${level}`
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: createGridConfig(),
+    xAxis: { type: 'category', data: loadTimeData.map(item => item.name) },
+    yAxis: { type: 'value', name: '平均加载时间 (ms)' },
+    series: [{
+      name: '加载时间',
+      type: 'bar',
+      data: loadTimeData.map(item => ({ value: item.value, itemStyle: { color: item.color } })),
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+    }]
+  }
+}
+
+/**
+ * 创建瀑布图配置
+ */
+const createWaterfallOption = () => {
+  const waterfallData = [
+    { name: 'DNS查询', value: 20 },
+    { name: 'TCP连接', value: 30 },
+    { name: '请求', value: 50 },
+    { name: '响应', value: 100 },
+    { name: 'DOM解析', value: 80 }
+  ]
+  const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1']
+  
+  return {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: createGridConfig(),
+    xAxis: { type: 'value', name: '时间 (ms)' },
+    yAxis: { type: 'category', data: waterfallData.map(item => item.name) },
+    series: [{
+      name: '加载阶段',
+      type: 'bar',
+      data: waterfallData.map(item => item.value),
+      itemStyle: {
+        color: (params: any) => colors[params.dataIndex]
       }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: generateTimeLabels()
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: 100,
-      name: '性能得分'
-    },
-    series: [
-      {
-        name: '性能得分',
-        type: 'line',
-        smooth: true,
-        data: scoreData,
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(24, 144, 255, 0.3)' },
-            { offset: 1, color: 'rgba(24, 144, 255, 0.1)' }
-          ])
-        },
-        itemStyle: { color: '#1890ff' },
-        markLine: {
-          data: [
-            { yAxis: 80, name: '优秀线', lineStyle: { color: '#52c41a' } },
-            { yAxis: 60, name: '及格线', lineStyle: { color: '#faad14' } }
-          ]
-        }
-      }
-    ]
+    }]
+  }
+}
+
+/**
+ * 创建对比图配置
+ */
+const createComparisonOption = () => ({
+  tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+  legend: { data: selectedMetrics.value.map(metric => metric.toUpperCase()) },
+  grid: createGridConfig(),
+  xAxis: createTimeAxisConfig(),
+  yAxis: { type: 'value', name: '时间 (ms)' },
+  series: selectedMetrics.value.map((metric, index) => ({
+    name: metric.toUpperCase(),
+    type: 'line',
+    smooth: true,
+    data: generateMetricData(metric),
+    itemStyle: { color: ['#1890ff', '#52c41a', '#faad14', '#722ed1'][index] }
+  }))
+})
+
+/**
+ * 批量初始化所有图表
+ */
+const initCharts = async () => {
+  console.log('Starting charts initialization...')
+  
+  // 定义图表配置映射
+  const chartConfigs = {
+    webVitals: createWebVitalsOption,
+    score: createScoreOption,
+    resourceType: createResourceTypeOption,
+    resourceTime: createResourceTimeOption,
+    waterfall: createWaterfallOption,
+    comparison: createComparisonOption
   }
   
-  scoreChartInstance.setOption(option)
+  // 并发初始化所有图表
+  await Promise.all(
+    Object.entries(chartConfigs).map(([key, optionBuilder]) => 
+      initChart(key, optionBuilder)
+    )
+  )
+  
+  console.log('All charts initialization completed')
 }
 
-// 资源类型分布图
-const initResourceTypeChart = () => {
-  if (!resourceTypeChart.value) return
-  
-  resourceTypeChartInstance = echarts.init(resourceTypeChart.value)
-  
-  const option = {
-    tooltip: {
-      trigger: 'item',
-      formatter: '{a} <br/>{b}: {c} ({d}%)'
-    },
-    legend: {
-      bottom: 0,
-      data: ['脚本', '样式', '图片', '字体', '其他']
-    },
-    series: [
-      {
-        name: '资源类型',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['50%', '40%'],
-        data: [
-          { value: 35, name: '脚本', itemStyle: { color: '#1890ff' } },
-          { value: 25, name: '样式', itemStyle: { color: '#52c41a' } },
-          { value: 20, name: '图片', itemStyle: { color: '#faad14' } },
-          { value: 10, name: '字体', itemStyle: { color: '#f5222d' } },
-          { value: 10, name: '其他', itemStyle: { color: '#722ed1' } }
-        ],
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
-          }
-        }
-      }
-    ]
-  }
-  
-  resourceTypeChartInstance.setOption(option)
-}
+// ============================
+// 业务逻辑函数
+// ============================
 
-// 资源加载时间图表
-const initResourceTimeChart = () => {
-  if (!resourceTimeChart.value) return
-  
-  resourceTimeChartInstance = echarts.init(resourceTimeChart.value)
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: ['脚本', '样式', '图片', '字体', 'XHR']
-    },
-    yAxis: {
-      type: 'value',
-      name: '平均加载时间 (ms)'
-    },
-    series: [
-      {
-        name: '加载时间',
-        type: 'bar',
-        data: [
-          { value: 120, itemStyle: { color: '#1890ff' } },
-          { value: 80, itemStyle: { color: '#52c41a' } },
-          { value: 200, itemStyle: { color: '#faad14' } },
-          { value: 150, itemStyle: { color: '#f5222d' } },
-          { value: 300, itemStyle: { color: '#722ed1' } }
-        ],
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
-          }
-        }
-      }
-    ]
-  }
-  
-  resourceTimeChartInstance.setOption(option)
-}
-
-// 瀑布图
-const initWaterfallChart = () => {
-  if (!waterfallChart.value) return
-  
-  waterfallChartInstance = echarts.init(waterfallChart.value)
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'value',
-      name: '时间 (ms)'
-    },
-    yAxis: {
-      type: 'category',
-      data: ['DNS查询', 'TCP连接', '请求', '响应', 'DOM解析']
-    },
-    series: [
-      {
-        name: '加载阶段',
-        type: 'bar',
-        data: [20, 30, 50, 100, 80],
-        itemStyle: {
-          color: (params: any) => {
-            const colors = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1']
-            return colors[params.dataIndex]
-          }
-        }
-      }
-    ]
-  }
-  
-  waterfallChartInstance.setOption(option)
-}
-
-// 性能对比图表
-const initComparisonChart = () => {
-  if (!comparisonChart.value) return
-  
-  comparisonChartInstance = echarts.init(comparisonChart.value)
-  updateComparisonChart()
-}
-
-// 更新对比图表
+/**
+ * 更新对比图表
+ */
 const updateComparisonChart = () => {
-  if (!comparisonChartInstance) return
-  
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'cross' }
-    },
-    legend: {
-      data: selectedMetrics.value.map(metric => metric.toUpperCase())
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: generateTimeLabels()
-    },
-    yAxis: {
-      type: 'value',
-      name: '时间 (ms)'
-    },
-    series: selectedMetrics.value.map((metric, index) => ({
-      name: metric.toUpperCase(),
-      type: 'line',
-      smooth: true,
-      data: generateMetricData(metric),
-      itemStyle: { 
-        color: ['#1890ff', '#52c41a', '#faad14', '#722ed1'][index] 
-      }
-    }))
+  if (chartInstances.comparison) {
+    chartInstances.comparison.setOption(createComparisonOption())
   }
-  
-  comparisonChartInstance.setOption(option)
 }
 
-// 生成时间标签
-const generateTimeLabels = () => {
-  const labels = []
-  const now = new Date()
-  const count = timeRange.value === '1h' ? 12 : timeRange.value === '6h' ? 12 : 24
-  const interval = timeRange.value === '1h' ? 5 : timeRange.value === '6h' ? 30 : 60
-  
-  for (let i = count - 1; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * interval * 60 * 1000)
-    labels.push(time.toLocaleTimeString('zh-CN', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    }))
-  }
-  
-  return labels
+/**
+ * 重新调整所有图表大小
+ */
+const resizeAllCharts = () => {
+  Object.values(chartInstances).forEach(instance => instance?.resize())
 }
 
-// 生成指标数据
-const generateMetricData = (metric: string) => {
-  // 使用实际数据或生成模拟数据
-  if (metricsData.value.length > 0) {
-    return metricsData.value.map(m => {
-      const value = m[metric as keyof typeof m] as number
-      return Math.round(value)
-    })
-  }
-  
-  // 生成模拟数据
-  const baseValues: Record<string, number> = {
-    fcp: 1500,
-    lcp: 2500,
-    fid: 50,
-    cls: 0.1,
-    ttfb: 800
-  }
-  
-  const base = baseValues[metric] || 100
-  const data = []
-  
-  for (let i = 0; i < 12; i++) {
-    const variance = base * 0.3
-    const value = base + (Math.random() - 0.5) * variance
-    data.push(Math.round(Math.max(0, value)))
-  }
-  
-  return data
-}
-
-// 生成得分数据
-const generateScoreData = () => {
-  const data = []
-  for (let i = 0; i < 12; i++) {
-    const score = 70 + Math.random() * 30
-    data.push(Math.round(score))
-  }
-  return data
-}
-
-// 获取得分等级
-const getScoreLevel = (score: number) => {
-  if (score >= 80) return '优秀'
-  if (score >= 60) return '良好'
-  return '需优化'
-}
-
-// 获取得分标签类型
-const getScoreTagType = (score: number) => {
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'danger'
-}
-
-// 更新图表
+/**
+ * 更新图表
+ */
 const updateCharts = () => {
-  initWebVitalsChart()
-  initScoreChart()
+  initChart('webVitals', createWebVitalsOption)
+  initChart('score', createScoreOption)
   updateComparisonChart()
 }
 
-// 刷新图表
+/**
+ * 刷新图表数据
+ */
 const refreshCharts = () => {
   ElMessage.info('正在刷新图表数据...')
   updateCharts()
 }
 
-// 导出数据
+/**
+ * 导出数据功能
+ */
 const exportData = () => {
   ElMessage.info('导出功能开发中...')
 }
 
-// 设置刷新间隔
+/**
+ * 设置刷新间隔
+ * @param interval - 间隔时间（毫秒）
+ */
 const setRefreshInterval = (interval: number) => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
@@ -605,40 +507,133 @@ const setRefreshInterval = (interval: number) => {
   }
   
   if (interval > 0) {
-    refreshTimer = window.setInterval(() => {
-      updateCharts()
-    }, interval)
+    refreshTimer = window.setInterval(updateCharts, interval)
     ElMessage.success(`已设置${interval / 1000}秒自动刷新`)
   }
 }
 
-// 监听数据变化
-watch(metricsData, () => {
-  updateCharts()
-}, { deep: true })
+// ============================
+// 数据生成器
+// ============================
 
-// 组件挂载
-onMounted(() => {
-  initCharts()
-  if (refreshInterval.value > 0) {
-    setRefreshInterval(refreshInterval.value)
-  }
-})
+/**
+ * 生成时间标签
+ */
+const generateTimeLabels = () => {
+  const now = new Date()
+  const intervals: Record<string, [number, number]> = { '1h': [12, 5], '6h': [12, 30], '24h': [24, 60], '7d': [24, 60] }
+  const [count, minutes] = intervals[timeRange.value] || [12, 5]
+  
+  return Array.from({ length: count }, (_, i) => {
+    const time = new Date(now.getTime() - (count - 1 - i) * minutes * 60 * 1000)
+    return time.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  })
+}
 
-// 组件卸载
-onUnmounted(() => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
+/**
+ * 生成指标数据
+ * @param metric - 指标名称
+ */
+const generateMetricData = (metric: string) => {
+  // 使用实际数据或生成模拟数据
+  if (metricsData.value.length > 0) {
+    return metricsData.value.map(m => Math.round(m[metric as keyof typeof m] as number))
   }
   
-  // 销毁图表实例
-  webVitalsChartInstance?.dispose()
-  scoreChartInstance?.dispose()
-  resourceTypeChartInstance?.dispose()
-  resourceTimeChartInstance?.dispose()
-  waterfallChartInstance?.dispose()
-  comparisonChartInstance?.dispose()
+  // 模拟数据生成
+  const baseValues: Record<string, number> = {
+    fcp: 1500, lcp: 2500, fid: 50, cls: 0.1, ttfb: 800
+  }
+  
+  const base = baseValues[metric] || 100
+  return Array.from({ length: 12 }, () => {
+    const variance = base * 0.3
+    return Math.round(Math.max(0, base + (Math.random() - 0.5) * variance))
+  })
+}
+
+/**
+ * 生成得分数据
+ */
+const generateScoreData = () => {
+  return Array.from({ length: 12 }, () => Math.round(70 + Math.random() * 30))
+}
+
+/**
+ * 获取得分等级
+ * @param score - 得分
+ */
+const getScoreLevel = (score: number) => {
+  if (score >= 80) return '优秀'
+  if (score >= 60) return '良好'
+  return '需优化'
+}
+
+/**
+ * 获取得分标签类型
+ * @param score - 得分
+ */
+const getScoreTagType = (score: number) => {
+  if (score >= 80) return 'success'
+  if (score >= 60) return 'warning'
+  return 'danger'
+}
+
+// ============================
+// 生命周期管理
+// ============================
+
+/**
+ * 监听数据变化
+ */
+watch(metricsData, updateCharts, { deep: true })
+
+/**
+ * 组件挂载
+ */
+onMounted(() => {
+  console.log('PerformanceCharts component mounted')
+  
+  nextTick(async () => {
+    await initCharts()
+    if (refreshInterval.value > 0) {
+      setRefreshInterval(refreshInterval.value)
+    }
+  })
+  
+  // 监听窗口大小变化
+  window.addEventListener('resize', resizeAllCharts)
 })
+
+/**
+ * 组件激活（处理标签页切换）
+ */
+onActivated(() => {
+  console.log('PerformanceCharts component activated')
+  
+  nextTick(async () => {
+    // 等待更长时间确保标签页完全显示
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await initCharts()
+    resizeAllCharts()
+  })
+})
+
+/**
+ * 组件卸载
+ */
+onUnmounted(() => {
+  // 清理定时器
+  if (refreshTimer) clearInterval(refreshTimer)
+  
+  // 移除事件监听器
+  window.removeEventListener('resize', resizeAllCharts)
+  
+  // 销毁图表实例
+  Object.values(chartInstances).forEach(instance => instance?.dispose())
+})
+
+
 </script>
 
 <style scoped>

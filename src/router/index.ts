@@ -27,27 +27,7 @@ const routes: RouteRecordRaw[] = [
           title: '性能监控',
           icon: 'TrendCharts',
           keepAlive: true
-        },
-        children: [
-          {
-            path: 'metrics',
-            name: 'PerformanceMetrics',
-            component: () => import('@/components/PerformanceMetrics.vue'),
-            meta: { title: '性能指标' }
-          },
-          {
-            path: 'charts',
-            name: 'PerformanceCharts',
-            component: () => import('@/components/PerformanceCharts.vue'),
-            meta: { title: '性能图表' }
-          },
-          {
-            path: 'demo',
-            name: 'PerformanceDemo',
-            component: () => import('@/components/demos/PerformanceDemo.vue'),
-            meta: { title: '性能演示' }
-          }
-        ]
+        }
       },
       {
         path: 'errors',
@@ -57,27 +37,7 @@ const routes: RouteRecordRaw[] = [
           title: '错误追踪',
           icon: 'WarningFilled',
           keepAlive: true
-        },
-        children: [
-          {
-            path: 'logs',
-            name: 'ErrorLogs',
-            component: () => import('@/components/ErrorLogs.vue'),
-            meta: { title: '错误日志' }
-          },
-          {
-            path: 'analysis',
-            name: 'ErrorAnalysis',
-            component: () => import('@/components/ErrorAnalysis.vue'),
-            meta: { title: '错误分析' }
-          },
-          {
-            path: 'demo',
-            name: 'ErrorDemo',
-            component: () => import('@/components/demos/ErrorDemo.vue'),
-            meta: { title: '错误演示' }
-          }
-        ]
+        }
       },
       {
         path: 'behavior',
@@ -87,27 +47,7 @@ const routes: RouteRecordRaw[] = [
           title: '用户行为分析',
           icon: 'User',
           keepAlive: true
-        },
-        children: [
-          {
-            path: 'heatmap',
-            name: 'BehaviorHeatmap',
-            component: () => import('@/components/BehaviorHeatmap.vue'),
-            meta: { title: '行为热力图' }
-          },
-          {
-            path: 'analytics',
-            name: 'BehaviorAnalytics',
-            component: () => import('@/components/BehaviorAnalytics.vue'),
-            meta: { title: '行为分析' }
-          },
-          {
-            path: 'demo',
-            name: 'BehaviorDemo',
-            component: () => import('@/components/demos/BehaviorDemo.vue'),
-            meta: { title: '行为演示' }
-          }
-        ]
+        }
       },
       {
         path: 'settings',

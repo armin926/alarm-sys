@@ -25,11 +25,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { 
-  CheckCircleFilled, 
+  CircleCheckFilled,
   WarningFilled, 
-  XCircleFilled,
-  WarningFilled as WarningFilledIcon,
   CircleCloseFilled,
+  WarningFilled as WarningFilledIcon,
   DataLine,
   Document
 } from '@element-plus/icons-vue'
@@ -51,8 +50,7 @@ const iconMap: Record<string, any> = {
   'CircleCloseFilled': CircleCloseFilled,
   'DataLine': DataLine,
   'Document': Document,
-  'CheckCircleFilled': CheckCircleFilled,
-  'XCircleFilled': XCircleFilled
+  'CircleCheckFilled': CircleCheckFilled
 }
 
 const iconComponent = computed(() => {
@@ -73,13 +71,13 @@ const displayValue = computed(() => {
 const getStatusIcon = () => {
   switch (props.status) {
     case 'good':
-      return CheckCircleFilled
+      return CircleCheckFilled
     case 'warning':
       return WarningFilled
     case 'error':
-      return XCircleFilled
+      return CircleCloseFilled
     default:
-      return CheckCircleFilled
+      return CircleCheckFilled
   }
 }
 

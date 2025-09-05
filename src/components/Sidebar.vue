@@ -4,7 +4,7 @@
     <div class="sidebar-header">
       <h3 class="title">告警监控</h3>
     </div>
-    
+
     <!-- 导航菜单 -->
     <el-menu
       :default-active="$route.path"
@@ -19,68 +19,46 @@
         <el-icon><House /></el-icon>
         <span>控制台总览</span>
       </el-menu-item>
-      
-      <el-sub-menu index="/performance">
-        <template #title>
-          <el-icon><TrendCharts /></el-icon>
-          <span>性能监控</span>
-        </template>
-        <el-menu-item index="/performance/metrics">性能指标</el-menu-item>
-        <el-menu-item index="/performance/charts">性能图表</el-menu-item>
-        <el-menu-item index="/performance/demo">性能演示</el-menu-item>
-      </el-sub-menu>
-      
-      <el-sub-menu index="/errors">
-        <template #title>
-          <el-icon><WarningFilled /></el-icon>
-          <span>错误追踪</span>
-        </template>
-        <el-menu-item index="/errors/logs">错误日志</el-menu-item>
-        <el-menu-item index="/errors/analysis">错误分析</el-menu-item>
-        <el-menu-item index="/errors/demo">错误演示</el-menu-item>
-      </el-sub-menu>
-      
-      <el-sub-menu index="/behavior">
-        <template #title>
-          <el-icon><User /></el-icon>
-          <span>用户行为</span>
-        </template>
-        <el-menu-item index="/behavior/heatmap">行为热力图</el-menu-item>
-        <el-menu-item index="/behavior/analytics">行为分析</el-menu-item>
-        <el-menu-item index="/behavior/demo">行为演示</el-menu-item>
-      </el-sub-menu>
-      
+      <el-menu-item index="/performance">
+        <el-icon><TrendCharts /></el-icon>
+        <span>性能监控</span>
+      </el-menu-item>
+      <el-menu-item index="/errors">
+        <el-icon><WarningFilled /></el-icon>
+        <span>错误追踪</span>
+      </el-menu-item>
+      <el-menu-item index="/behavior">
+        <el-icon><User /></el-icon>
+        <span>用户行为</span>
+      </el-menu-item>
       <el-menu-item index="/settings">
         <el-icon><Setting /></el-icon>
         <span>告警配置</span>
       </el-menu-item>
-      
-      <el-divider style="margin: 16px 0; border-color: #333;" />
-      
+
+      <el-divider style="margin: 16px 0; border-color: #333" />
+
       <el-menu-item index="/demo">
         <el-icon><Management /></el-icon>
         <span>演示页面</span>
       </el-menu-item>
     </el-menu>
-    
+
     <!-- 底部信息 -->
     <div class="sidebar-footer">
       <div class="system-info">
         <div class="info-item">
           <span class="label">监控状态：</span>
-          <el-tag 
-            :type="isMonitoring ? 'success' : 'danger'" 
-            size="small"
-          >
-            {{ isMonitoring ? '运行中' : '已停止' }}
+          <el-tag :type="isMonitoring ? 'success' : 'danger'" size="small">
+            {{ isMonitoring ? "运行中" : "已停止" }}
           </el-tag>
         </div>
-        
+
         <div class="info-item">
           <span class="label">活跃会话：</span>
           <span class="value">{{ activeSessions }}</span>
         </div>
-        
+
         <div class="info-item">
           <span class="label">错误数量：</span>
           <span class="value error-count">{{ totalErrors }}</span>
@@ -91,16 +69,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { 
-  House, 
-  TrendCharts, 
-  WarningFilled, 
-  User, 
+import { computed } from "vue"
+import {
+  House,
+  TrendCharts,
+  WarningFilled,
+  User,
   Setting,
-  Management
-} from '@element-plus/icons-vue'
-import { usePerformanceStore, useErrorStore, useBehaviorStore } from '@/stores'
+  Management,
+} from "@element-plus/icons-vue"
+import { usePerformanceStore, useErrorStore, useBehaviorStore } from "@/stores"
 
 const performanceStore = usePerformanceStore()
 const errorStore = useErrorStore()
@@ -150,10 +128,6 @@ const totalErrors = computed(() => errorStore.errors.length)
 .sidebar-menu .el-menu-item:hover,
 .sidebar-menu .el-sub-menu__title:hover {
   background-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.sidebar-menu .el-menu-item.is-active {
-  background-color: #1890ff !important;
 }
 
 .sidebar-footer {
