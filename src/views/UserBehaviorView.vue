@@ -138,7 +138,7 @@
     </el-tabs>
 
     <!-- 嵌套路由视图 -->
-    <router-view v-if="$route.path !== '/behavior'" />
+    <!-- <router-view v-if="$route.path !== '/behavior'" /> -->
   </div>
 </template>
 
